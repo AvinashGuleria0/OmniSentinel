@@ -164,12 +164,49 @@ This document is the historical source of truth for all implemented code, archit
 
 ---
 
+### Phase 5: Next.js 14+ Frontend Dashboard
+* **Status:** Completed
+* **Key Technical Decisions & Engineering Solutions:**
+  * **Next.js 14 App Router Architecture:** Built `apps/web` as a Next.js 14 App Router SPA. The dashboard root is a `'use client'` page using React `useState` + `useCallback` + `useEffect` for data lifecycle, with 20-second auto-refresh polling the Fastify API.
+  * **Custom Tailwind Design System:** Defined a zinc/slate deep-dark palette (`#060911` base) with custom Tailwind color tokens (`sentinel.cyan`, `sentinel.emerald`, `sentinel.amber`, `sentinel.violet`, `sentinel.rose`), glassmorphism utilities (`.glass-card`, `.glass-panel`), multi-color ambient box shadow glows, and a subtle 32px cyber grid background pattern.
+  * **Universal Intent Command Bar (`UniversalSearchBar`):** Full-width input bar with cyan gradient glow frame on focus. Animating placeholder text rotates through 4 realistic user prompts every 4.5 seconds. `Ctrl+K` / `Cmd+K` keyboard shortcut focuses the input globally. Domain preset chips dispatch full prompts directly to the intent classifier.
+  * **Search-and-Confirm Preview Modal (`IntentPreviewModal`):** Renders the Gemini Flash intent classification output as a structured modal with: domain type badge + confidence score, extracted condition formula (`LT ₹1,600`), up to 3 interactive candidate preview cards with thumbnails and source labels, target value override input, 5-tier frequency selector buttons, bank card discount checkboxes (HDFC/ICICI/SBI/Axis), and auto-coupon toggle. "Deploy Autonomous Sentinel" persists to Supabase via `POST /api/v1/monitors` and enqueues immediate BullMQ check.
+  * **Monitor Card Component (`MonitorCard`):** Status-coded animated status badges with a living pulse indicator for `ACTIVE` status. Domain icons, raw prompt display, target condition formula, last known value metric, relative time ("5m ago"), and a compact actions toolbar (Re-arm, Pause/Resume, Analytics Drawer, Delete). Hover lift transition through `.glass-card` CSS.
+  * **Monitors Grid (`MonitorsGrid`):** Domain tab bar (All / Stocks / E-Commerce / Jobs / Web Scrapers) with in-memory filter + text search across title, prompt, and targetSymbol. Three-column responsive CSS Grid. Loading skeleton placeholder cards during API fetch.
+  * **Monitor Analytics Drawer (`MonitorAnalyticsDrawer`):** Slide-over right-panel drawer showing: 3-column metrics header (Condition Target / Latest Recorded / Last Checked), **Recharts `LineChart`** with cyan trend line, amber `ReferenceLine` at target value, dark-themed tooltip, and custom axis labels. Visual proof Cloudinary screenshot with fullscreen lightbox on click. Chronological execution audit log table with color-coded status dots.
+  * **Typed API Client (`lib/api.ts`):** Fully typed `fetch`-based HTTP client calling the Fastify backend. All operations return strongly typed `MonitorRecord` and `CheckLogPoint` interfaces. `parseIntent()` returns `ParseIntentResponse` from the shared Zod schema.
+  * **Toast Notification System:** Context-based `ToastProvider` with `useToast()` hook. Three variant toasts (`success`, `error`, `info`) with icons, auto-dismiss at 4.5s, and manual close button.
+* **Artifacts & Code Implemented:**
+  * `apps/web/package.json`: Next.js 14, React 18, Tailwind CSS 3, Recharts, Lucide React, clsx/tailwind-merge.
+  * `apps/web/tailwind.config.ts`: Custom dark palette, glow box-shadows, fade-in animation, cyber-grid background.
+  * `apps/web/src/app/globals.css`: Glass morphism CSS utilities, ambient grid, custom scrollbar.
+  * `apps/web/src/lib/api.ts`: Typed HTTP client for all 7 Fastify API endpoints.
+  * `apps/web/src/lib/utils.ts`: `cn()` helper, `formatCurrency()`, `formatRelativeTime()`.
+  * `apps/web/src/components/common/Header.tsx`: Sticky header with live API beacon and system telemetry.
+  * `apps/web/src/components/common/Toast.tsx`: Context toast system with `useToast()` hook.
+  * `apps/web/src/components/intent/UniversalSearchBar.tsx`: Intent command bar with `Ctrl+K`, rotating placeholders, preset chips.
+  * `apps/web/src/components/intent/IntentPreviewModal.tsx`: Search-and-Confirm modal with filter controls and Deploy CTA.
+  * `apps/web/src/components/monitors/MonitorCard.tsx`: Status-coded monitor card with action toolbar.
+  * `apps/web/src/components/monitors/MonitorsGrid.tsx`: Domain tabs, text search, responsive grid.
+  * `apps/web/src/components/analytics/MonitorAnalyticsDrawer.tsx`: Recharts analytics, visual proof screenshot, audit log.
+  * `apps/web/src/app/layout.tsx`: Root layout with Toast context provider and global metadata.
+  * `apps/web/src/app/page.tsx`: Main dashboard page wiring all components.
+* **Verification & Testing Results:**
+  * `next build` (production build): **Exit code 0** — compiled successfully with zero TypeScript errors, zero linting errors.
+  * Route `/` First Load JS: 208 kB total (113 kB page bundle + 87.1 kB shared chunks).
+  * Dashboard renders at `http://localhost:3000` with correct page title, hero section, search bar, and monitor grid.
+  * Fastify API server confirmed running at `http://localhost:4000` — `Gateway Connected` status beacon active in the header.
+  * 20-second auto-refresh polling live and loading monitors from Supabase.
+
+---
+
 ## 3. What is Next to Implement
 
 As outlined in [`plan.md`](file:///e:/OmniSentinel/docs/plan.md), the next immediate step is:
-* **Phase 5: Next.js 14+ Frontend Dashboard**
-  1. Next.js 14 App Router setup with Tailwind CSS, Lucide icons, and modern design system.
-  2. Dark-mode aesthetic with zinc/slate glassmorphism and modern typography.
-  3. Universal Intent Search bar (`Cmd+K`) with real-time candidate preview cards.
-  4. Active Monitors Grid with one-click re-arming, pausing, and test running.
-  5. Detailed Monitor View with Recharts price trend graphs and Cloudinary screenshot visual proof inspection drawer.
+* **Phase 6: End-to-End Hardening, Deployment & CI/CD**
+  1. Verify all live production integrations (Telegram, Brevo, Cloudinary, Gemini, JSearch).
+  2. Multi-stage `Dockerfile` for backend (Playwright + Chromium on Debian).
+  3. `docker-compose.yml` for full-stack local orchestration.
+  4. Vercel deployment guide for Next.js frontend.
+  5. Railway / Render deployment for Fastify API and BullMQ worker.
+

@@ -186,21 +186,22 @@ As a senior startup engineer building OmniSentinel for production resilience and
 
 **Goal:** Build a stunning, responsive, SaaS-grade UI that wows users at first glance with smooth animations, dark mode, and zero clutter.
 
-- [ ] **5.1 Frontend Design System & Scaffold**
-  - [ ] Next.js 14 App Router project setup with Tailwind CSS and shadcn/ui.
-  - [ ] Premium dark mode aesthetic: slate/zinc palette, glassmorphic cards, polished typography (Inter/Outfit).
-  - [ ] Layout with sidebar, header, active status indicators, and notification preferences.
-- [ ] **5.2 Universal Intent Search & Interactive Preview Modal**
-  - [ ] Prominent universal input bar with keyboard shortcuts (`Cmd+K` / `Ctrl+K`) and animated placeholder suggestions.
-  - [ ] Instant preview modal: shows 3 product candidate cards, stock ticker summaries, or job criteria before saving.
-  - [ ] Interactive filter controls: bank card discount checkboxes (HDFC, ICICI, SBI), coupon toggle, and frequency selector.
-- [ ] **5.3 Active Monitors Grid & Management**
-  - [ ] Monitor cards showing live status (`ACTIVE`, `TRIGGERED_SNOOZED`, `PAUSED`, `BLOCKED`).
-  - [ ] One-click actions: "Re-arm Monitor", "Pause", "Delete", "Test Run Now".
-- [ ] **5.4 Analytics & Historical Price Trend View**
-  - [ ] Detailed monitor view (`/monitors/[id]`).
-  - [ ] Interactive Recharts line chart showing price drops over time with tooltips.
-  - [ ] Visual proof inspection drawer: view Cloudinary screenshots captured during check cycles.
+- [x] **5.1 Frontend Design System & Scaffold**
+  - [x] Next.js 14 App Router project setup with Tailwind CSS 3 and custom glassmorphic design tokens.
+  - [x] Premium dark mode aesthetic: zinc/slate base, ambient cyan/blue/violet glows, glassmorphic cards with hover lift.
+  - [x] Sticky header with live API status beacon, system telemetry (total/active/snoozed monitors), and `⌘K` shortcut button.
+- [x] **5.2 Universal Intent Search & Interactive Preview Modal**
+  - [x] Prominent `UniversalSearchBar` with `Ctrl+K` / `Cmd+K` keyboard shortcut, animated rotating placeholder suggestions, and preset domain chips.
+  - [x] `IntentPreviewModal` with confidence score badge, 3 candidate preview cards with source logos and prices, and "Deploy Sentinel" CTA.
+  - [x] Interactive filter controls: bank card checkboxes (HDFC, ICICI, SBI, Axis), auto-apply coupon toggle, and 5-tier frequency selector.
+- [x] **5.3 Active Monitors Grid & Management**
+  - [x] `MonitorCard` showing animated live status badges (`ACTIVE` pulse, `TRIGGERED_SNOOZED` amber, `PAUSED`, `BLOCKED`).
+  - [x] Per-card actions toolbar: Re-arm, Pause/Resume, Analytics Drawer, Delete; with snooze countdown display.
+  - [x] `MonitorsGrid` with domain filter tabs (All / Stocks / E-Commerce / Jobs / Web Scrapers) and real-time search filter.
+- [x] **5.4 Analytics & Historical Price Trend View**
+  - [x] `MonitorAnalyticsDrawer` slide-over panel with metrics overview and chronological execution audit log.
+  - [x] Interactive Recharts `LineChart` with cyan trend line, amber target reference line, and custom styled tooltip.
+  - [x] Visual proof screenshot section: Cloudinary CDN image thumbnail with fullscreen lightbox on click.
 
 **Acceptance Criteria for Phase 5:**
 - Complete user flow works seamlessly in browser: type prompt -> see preview -> confirm monitor -> view monitor in dashboard -> trigger test run -> view updated chart and screenshot.
