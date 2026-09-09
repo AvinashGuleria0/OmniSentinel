@@ -12,6 +12,7 @@
     "start": "bun run --cwd apps/server start",
     "build": "bun run --filter \"*\" build",
     "dev:server": "bun run --cwd apps/server dev",
+    "worker": "bun run --cwd apps/server worker",
     "dev:web": "bun run --cwd apps/web dev",
     "cli:test": "bun run --cwd apps/server cli:test",
     "db:generate": "bun run --cwd apps/server db:generate",
