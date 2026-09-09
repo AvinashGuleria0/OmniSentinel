@@ -1,0 +1,25 @@
+{
+  "name": "omnisentinel-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Autonomous Multi-Source Intent-First Tracker",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "bun run dev:server",
+    "start": "bun run --cwd apps/server start",
+    "build": "bun run --filter \"*\" build",
+    "dev:server": "bun run --cwd apps/server dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "cli:test": "bun run --cwd apps/server cli:test",
+    "db:generate": "bun run --cwd apps/server db:generate",
+    "db:migrate": "bun run --cwd apps/server db:migrate",
+    "db:push": "bun run --cwd apps/server db:push",
+    "lint": "bun run --filter \"*\" lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
