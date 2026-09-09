@@ -127,31 +127,31 @@ As a senior startup engineer building OmniSentinel for production resilience and
 
 **Goal:** Implement the AI classification layer, Redis connection, distributed task scheduler, and worker pool with bounded concurrency.
 
-- [ ] **3.1 Gemini Flash Intent Classifier Service**
-  - [ ] Google GenAI SDK integration with Gemini Flash model.
-  - [ ] Structured prompt enforcing `IntentAnalysisSchema` with Zod validation.
-  - [ ] Source discovery helper (maps product query to Amazon/Flipkart search URLs or stock ticker).
-  - [ ] Mock LLM fallback providing instant deterministic JSON fixtures when `MOCK_MODE=true`.
-- [ ] **3.2 Redis & BullMQ Infrastructure**
-  - [ ] Redis connection manager (`ioredis`) supporting local Redis and Upstash TLS.
-  - [ ] Queue definitions:
+- [x] **3.1 Gemini Flash Intent Classifier Service**
+  - [x] Google GenAI SDK integration with Gemini Flash model.
+  - [x] Structured prompt enforcing `IntentAnalysisSchema` with Zod validation.
+  - [x] Source discovery helper (maps product query to Amazon/Flipkart search URLs or stock ticker).
+  - [x] Mock LLM fallback providing instant deterministic JSON fixtures when `MOCK_MODE=true`.
+- [x] **3.2 Redis & BullMQ Infrastructure**
+  - [x] Redis connection manager (`ioredis`) supporting local Redis and Upstash TLS.
+  - [x] Queue definitions:
     - `monitor-scheduler-queue` (Cron / periodic polling)
     - `execution-queue` (Resolver execution jobs)
     - `notification-queue` (Alert dispatch jobs)
-- [ ] **3.3 BullMQ Scheduler Worker**
-  - [ ] Cron job running every 60s querying monitors where `status = 'ACTIVE' AND next_run_at <= NOW()`.
-  - [ ] Batches due tasks and enqueues them into `execution-queue`.
-- [ ] **3.4 BullMQ Execution Worker**
-  - [ ] Strict concurrency setting: `concurrency: 3`.
-  - [ ] Executes `resolveMonitor(job.data)`.
-  - [ ] Auto-snooze state machine: if condition met, set `status = 'TRIGGERED_SNOOZED'`, `snoozed_until = NOW() + 48h`.
-  - [ ] Inserts record into `check_logs`.
-  - [ ] Pushes to `notification-queue` if condition is satisfied.
-- [ ] **3.5 Notification Worker & Dispatchers**
-  - [ ] Cloudinary uploader service for visual screenshot buffers.
-  - [ ] Telegram Bot API client (sends formatted markdown + inline screenshot photo).
-  - [ ] Brevo email client with modern HTML email template.
-  - [ ] Mock dispatcher that prints formatted alerts to stdout in development.
+- [x] **3.3 BullMQ Scheduler Worker**
+  - [x] Cron job running every 60s querying monitors where `status = 'ACTIVE' AND next_run_at <= NOW()`.
+  - [x] Batches due tasks and enqueues them into `execution-queue`.
+- [x] **3.4 BullMQ Execution Worker**
+  - [x] Strict concurrency setting: `concurrency: 3`.
+  - [x] Executes `resolveMonitor(job.data)`.
+  - [x] Auto-snooze state machine: if condition met, set `status = 'TRIGGERED_SNOOZED'`, `snoozed_until = NOW() + 48h`.
+  - [x] Inserts record into `check_logs`.
+  - [x] Pushes to `notification-queue` if condition is satisfied.
+- [x] **3.5 Notification Worker & Dispatchers**
+  - [x] Cloudinary uploader service for visual screenshot buffers.
+  - [x] Telegram Bot API client (sends formatted markdown + inline screenshot photo).
+  - [x] Brevo email client with modern HTML email template.
+  - [x] Mock dispatcher that prints formatted alerts to stdout in development.
 
 **Acceptance Criteria for Phase 3:**
 - A full background loop executes: monitor is scheduled -> worker processes it -> log written to DB -> auto-snooze kicks in -> notification dispatched.
@@ -163,19 +163,19 @@ As a senior startup engineer building OmniSentinel for production resilience and
 
 **Goal:** Expose the backend via Fastify with high throughput, CORS, authentication middleware, and input validation.
 
-- [ ] **4.1 Fastify Server Bootstrap**
-  - [ ] Fastify instance with `@fastify/cors`, `@fastify/helmet`, and `@fastify/sensible`.
-  - [ ] Global error handler and request ID correlation.
-- [ ] **4.2 REST Endpoints Implementation**
-  - [ ] `POST /api/v1/intent/parse`: Parses user prompt, returns intent analysis and preview cards without saving.
-  - [ ] `POST /api/v1/monitors`: Creates monitor, sets `next_run_at = NOW()`, immediately enqueues first check.
-  - [ ] `GET /api/v1/monitors`: Lists user monitors with status badges, last values, and failure counters.
-  - [ ] `GET /api/v1/monitors/:id`: Fetches single monitor details.
-  - [ ] `PATCH /api/v1/monitors/:id`: Update filters, threshold, or re-arm snoozed monitor.
-  - [ ] `DELETE /api/v1/monitors/:id`: Soft delete or cascade delete monitor and logs.
-  - [ ] `GET /api/v1/monitors/:id/history`: Returns historical check log data points for Recharts.
-- [ ] **4.3 API Integration Tests**
-  - [ ] Supertest / Fastify `inject()` tests validating all endpoints with Zod payload schemas.
+- [x] **4.1 Fastify Server Bootstrap**
+  - [x] Fastify instance with `@fastify/cors`, `@fastify/helmet`, and `@fastify/sensible`.
+  - [x] Global error handler and request ID correlation.
+- [x] **4.2 REST Endpoints Implementation**
+  - [x] `POST /api/v1/intent/parse`: Parses user prompt, returns intent analysis and preview cards without saving.
+  - [x] `POST /api/v1/monitors`: Creates monitor, sets `next_run_at = NOW()`, immediately enqueues first check.
+  - [x] `GET /api/v1/monitors`: Lists user monitors with status badges, last values, and failure counters.
+  - [x] `GET /api/v1/monitors/:id`: Fetches single monitor details.
+  - [x] `PATCH /api/v1/monitors/:id`: Update filters, threshold, or re-arm snoozed monitor.
+  - [x] `DELETE /api/v1/monitors/:id`: Soft delete or cascade delete monitor and logs.
+  - [x] `GET /api/v1/monitors/:id/history`: Returns historical check log data points for Recharts.
+- [x] **4.3 API Integration Tests**
+  - [x] Fastify `inject()` automated integration tests validating all endpoints, status codes, and Zod schemas.
 
 **Acceptance Criteria for Phase 4:**
 - All API routes pass automated HTTP injection tests with 200/201 responses and proper validation error codes (400, 404).

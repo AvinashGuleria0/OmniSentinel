@@ -6,13 +6,71 @@ import { db, monitors } from '../db';
 import { ExecutionJobPayload } from '@omnisentinel/shared';
 import { closeDb } from '../db';
 import { BrowserManager } from '../services/scraping/browser.manager';
+import { closeRedisConnection } from '../queues/connection';
+
+import { IntentClassifierService } from '../services/intent/intent.classifier';
+import { SchedulerService } from '../workers/scheduler.worker';
+import { notificationQueue } from '../queues';
+import { TelegramDispatcher } from '../services/notifications/telegram.dispatcher';
+import { BrevoDispatcher } from '../services/notifications/brevo.dispatcher';
 
 const program = new Command();
 
 program
   .name('omnisentinel-cli')
-  .description('OmniSentinel CLI Test Harness for Domain Resolvers')
+  .description('OmniSentinel CLI Test Harness for Domain Resolvers & Intent Engine')
   .version('1.0.0');
+
+// 0. Test Intent Classification (Gemini Flash)
+program
+  .command('parse-intent')
+  .description('Test Gemini Flash Natural Language Intent Classifier & Preview Generator')
+  .argument('<prompt>', 'User natural language query')
+  .action(async (prompt) => {
+    console.log(`\n🤖 [CLI] Parsing Intent for: "${prompt}"`);
+    const startTime = Date.now();
+
+    const response = await IntentClassifierService.classify(prompt);
+    const duration = Date.now() - startTime;
+
+    console.log('\n🧠 Intent Analysis Result:');
+    console.log('----------------------------------------------------');
+    console.log(`Classified Domain: ${response.analysis.type}`);
+    console.log(`Title:             ${response.analysis.title}`);
+    console.log(`Target Query:      ${response.analysis.targetQuery}`);
+    console.log(`Operator:          ${response.analysis.conditionOperator}`);
+    console.log(`Target Value:      ${response.analysis.targetValue}`);
+    console.log(`Currency:          ${response.analysis.currency}`);
+    console.log(`Confidence:        ${(response.analysis.confidence * 100).toFixed(1)}%`);
+    console.log(`Initial URL:       ${response.analysis.initialUrl || 'None'}`);
+    console.log('Filter Metadata:  ', JSON.stringify(response.analysis.filterMetadata));
+    console.log(`Execution Time:    ${duration}ms`);
+    console.log('----------------------------------------------------');
+
+    console.log('\n🃏 Generated Preview Cards (Search-and-Confirm UX):');
+    response.previewResults.forEach((card, idx) => {
+      console.log(`  Card ${idx + 1}: ${card.title}`);
+      console.log(`    Source: ${card.source} | Price: ${card.currentPrice !== null ? card.currency + ' ' + card.currentPrice : 'N/A'}`);
+      console.log(`    URL:    ${card.url}`);
+    });
+    console.log('');
+
+    await closeDb();
+    process.exit(0);
+  });
+
+// 0.1 Test Scheduler Tick
+program
+  .command('scheduler-tick')
+  .description('Run a single poll cycle of the background scheduler against Supabase')
+  .action(async () => {
+    console.log('\n⏰ [CLI] Running manual SchedulerService.tick()...');
+    const enqueued = await SchedulerService.tick();
+    console.log(`✅ Scheduler tick completed. Enqueued ${enqueued} tasks into execution-queue.`);
+    await closeDb();
+    await closeRedisConnection();
+    process.exit(0);
+  });
 
 // 1. Test Stock Resolver
 program

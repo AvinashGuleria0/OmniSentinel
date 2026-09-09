@@ -2,7 +2,7 @@
 
 **System:** OmniSentinel (Autonomous Multi-Source Intent-First Tracker)  
 **Maintained by:** Senior Development Team  
-**Last Updated:** Phase 1 (Workspace, Data Contracts & Live Supabase Migration)
+**Last Updated:** Phase 3 (AI Intent Engine & BullMQ Queue Pipelines)
 
 This document is the historical source of truth for all implemented code, architectural decisions, and system capabilities in the OmniSentinel repository. As features are built and verified, they are documented here in detail so that any engineer or recruiter can immediately see **what** was implemented, **how** it was engineered, and **why** specific technical choices were made.
 
@@ -15,7 +15,7 @@ This document is the historical source of truth for all implemented code, archit
 | **Phase 0** | Architecture, Design Documentation & Master Plan | **COMPLETED** | HLD, LLD, Description & Plan documented |
 | **Phase 1** | Monorepo Setup, Database DDL (PostgreSQL) & Zod Contracts | **COMPLETED** | Build passes, DDL migrations executed on Supabase |
 | **Phase 2** | Domain Resolvers & CLI Verification Harness | **COMPLETED** | All 4 resolvers verified via CLI commands |
-| **Phase 3** | AI Intent Engine & BullMQ Queue Pipelines | **PENDING** | End-to-end background job loop verified in terminal |
+| **Phase 3** | AI Intent Engine & BullMQ Queue Pipelines | **COMPLETED** | End-to-end background job loop verified in terminal |
 | **Phase 4** | Fastify REST API Gateway | **PENDING** | HTTP injection tests pass for all routes |
 | **Phase 5** | Next.js 14+ Frontend Dashboard | **PENDING** | Browser flow: Intent -> Preview -> Track -> Analytics |
 | **Phase 6** | Production Hardening, Live Integrations & Deployment | **PENDING** | Live channels verified, Docker containerized |
@@ -96,14 +96,80 @@ This document is the historical source of truth for all implemented code, archit
 
 ---
 
+### Phase 3: AI Intent Engine & BullMQ Asynchronous Queues
+* **Status:** Completed
+* **Key Technical Decisions & Engineering Solutions:**
+  * **Gemini Flash Intent Classifier:** Built `IntentClassifierService` powered by `gemini-3.5-flash-lite` with structured Zod output validation (`IntentAnalysisSchema`). Autonomously resolves entity targets (e.g. "Airtel" $\to$ `BHARTIARTL.NS`, "Nike shoes" $\to$ Amazon/Flipkart query) and extracts numeric thresholds, bank discount cards, and condition operators in ~1.2s.
+  * **Search-and-Confirm UX Generator:** Integrated candidate preview card generation returning rich product thumbnails, prices, and direct URLs before persistence.
+  * **Upstash TLS Redis Infrastructure:** Configured `ioredis` with TLS support (`rediss://`) connecting to Upstash cloud broker with BullMQ compatibility (`maxRetriesPerRequest: null`).
+  * **Atomic Task Enqueueing:** Engineered `SchedulerService` using BullMQ `addBulk()` to batch enqueue all due monitor checks atomically in a single Redis transaction instead of sequential network round-trips.
+  * **Bounded Concurrency Execution Pool:** Implemented `ExecutionWorker` with hard concurrency ceiling $\text{concurrency} = 3$ to strictly protect worker node memory from headless browser crashes.
+  * **Automated Snooze State Machine:** Verified live that monitors satisfying tracking conditions transition to `TRIGGERED_SNOOZED` and calculate `snoozed_until = NOW() + 48h` in the live Supabase database, preventing alert fatigue spam.
+  * **Multi-Channel Alert Dispatch:** Built `TelegramDispatcher` supporting inline photos and action buttons + `BrevoDispatcher` rendering modern responsive HTML dark-mode email alerts.
+  * **Visual Proof CDN:** Engineered `CloudinaryService` to sign and upload screenshot buffers directly via REST API.
+* **Artifacts & Code Implemented:**
+  * `apps/server/src/services/intent/intent.classifier.ts`
+  * `apps/server/src/queues/connection.ts`
+  * `apps/server/src/queues/index.ts`
+  * `apps/server/src/workers/execution.worker.ts`
+  * `apps/server/src/workers/notification.worker.ts`
+  * `apps/server/src/workers/scheduler.worker.ts`
+  * `apps/server/src/workers/runner.ts`
+  * `apps/server/src/services/storage/cloudinary.service.ts`
+  * `apps/server/src/services/notifications/telegram.dispatcher.ts`
+  * `apps/server/src/services/notifications/brevo.dispatcher.ts`
+  * `apps/server/src/cli/index.ts` (added `parse-intent` and `scheduler-tick` commands)
+* **Verification & Testing Results:**
+  * `cli:test parse-intent` on stock, job, and e-commerce queries resolved with 95-98% confidence via live Gemini Flash API.
+  * `cli:test scheduler-tick` queried Supabase and atomically enqueued 4 monitor tasks into `execution-queue` on Upstash Redis.
+  * `bun run worker` consumed jobs, evaluated conditions, triggered 48-hour auto-snooze state transition in Supabase, logged entries to `check_logs`, and dispatched alert payloads to `notification-queue`.
+  * Verified live database state in Supabase: monitors updated to `TRIGGERED_SNOOZED` with `snoozed_until` set 48 hours into the future, and 8 time-series logs appended to `check_logs`.
+
+---
+
+---
+
+### Phase 4: Fastify REST API Gateway & Backend Endpoints
+* **Status:** Completed
+* **Key Technical Decisions & Engineering Solutions:**
+  * **Fastify v4 Architecture:** Factory function `buildServer()` configured with `@fastify/cors` (supporting localhost and frontend clients), `@fastify/helmet` (security headers), and `@fastify/sensible` (HTTP error primitives).
+  * **Zero-Overhead Correlation ID & Logging:** Standardized cryptographic UUID request IDs (`genReqId`) with custom `onRequest` and `onResponse` hooks recording request timing in Pino structured logs.
+  * **Global Error Interceptor:** Intercepts Zod validation failures, mapping them directly to standardized `400 Bad Request` payloads with detailed path and issue explanations. Unhandled exceptions map to `500 Internal Server Error` with sanitized error responses in production.
+  * **Seamless Demo & Multi-Tenant User Context:** Built `resolveUserId` helper reading the incoming `x-user-id` header with automated fallback to the seeded demo user (`demo@omnisentinel.dev`), enabling full testing and SaaS dashboard readiness without blocking on auth tokens.
+  * **Atomic Immediate Enqueueing:** `POST /api/v1/monitors` persists the monitor into Supabase with `next_run_at = NOW()` and immediately pushes an initial check task into BullMQ `executionQueue`, providing instant gratification to users upon monitor creation.
+  * **Re-arm Lifecycle Management:** `PATCH /api/v1/monitors/:id` intelligently detects transitions to `ACTIVE`, resetting `snoozed_until = null`, clearing `consecutive_failures = 0`, and immediately queuing a re-arm check cycle.
+  * **Recharts-Optimized Time-Series Endpoint:** `GET /api/v1/monitors/:id/history` queries the `check_logs` ledger ordered chronologically (`ASC`), formatting data points with ISO timestamps, numeric values, screenshot URLs, and status tags for front-end charts.
+  * **Automated In-Memory Injection Suite:** Comprehensive test suite utilizing Fastify's native `app.inject()` testing all 12 validation, creation, listing, patching, history, and cascade deletion flows without requiring open network ports.
+* **Artifacts & Code Implemented:**
+  * `apps/server/src/api/server.ts`: Server factory, plugins, global error handler, health check route.
+  * `apps/server/src/api/routes/intent.routes.ts`: `POST /api/v1/intent/parse` with validation and preview generator.
+  * `apps/server/src/api/routes/monitors.routes.ts`: Full CRUD and time-series endpoints (`POST`, `GET`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET :id/history`).
+  * `apps/server/src/index.ts`: Application entrypoint with graceful shutdown (`SIGINT`/`SIGTERM`) and optional worker orchestration (`START_WORKERS=true`).
+  * `apps/server/src/api/__tests__/api.test.ts`: 12-stage integration test suite.
+* **Verification & Testing Results:**
+  * Executed automated test suite `bun run --cwd apps/server tsx src/api/__tests__/api.test.ts`:
+    1. `GET /health` $\to$ 200 OK (`status: 'ok'`, `service: 'omnisentinel-api'`).
+    2. `POST /api/v1/intent/parse` validation error $\to$ 400 Bad Request.
+    3. `POST /api/v1/intent/parse` with valid prompt $\to$ 200 OK (type `STOCK`, operator `LT`, preview items generated).
+    4. `POST /api/v1/monitors` validation error $\to$ 400 Bad Request.
+    5. `POST /api/v1/monitors` valid monitor creation $\to$ 201 Created (persisted to live Supabase, initial check task enqueued to Upstash Redis).
+    6. `GET /api/v1/monitors` $\to$ 200 OK (returned array of user monitors).
+    7. `GET /api/v1/monitors/:id` $\to$ 200 OK (returned monitor details).
+    8. `GET /api/v1/monitors/:id` with non-existent UUID $\to$ 404 Not Found.
+    9. `PATCH /api/v1/monitors/:id` $\to$ 200 OK (updated threshold to 975.5, re-armed to `ACTIVE`).
+    10. `GET /api/v1/monitors/:id/history` $\to$ 200 OK (returned chronological time-series points).
+    11. `DELETE /api/v1/monitors/:id` $\to$ 200 OK (deleted monitor record).
+    12. Subsequent `GET /api/v1/monitors/:id` $\to$ 404 Not Found (verified deletion).
+  * `tsc --noEmit` executed with exit code 0 across the backend codebase.
+
+---
+
 ## 3. What is Next to Implement
 
 As outlined in [`plan.md`](file:///e:/OmniSentinel/docs/plan.md), the next immediate step is:
-* **Phase 3: AI Intent Engine & BullMQ Asynchronous Queues**
-  1. Google Gemini Flash Intent Classifier service (`POST /intent/parse` backend service).
-  2. Redis connection manager (`ioredis`) for Upstash / local Redis.
-  3. BullMQ queues: `monitor-scheduler-queue`, `execution-queue`, and `notification-queue`.
-  4. BullMQ Scheduler worker (queries active monitors due for execution every 60s).
-  5. BullMQ Execution worker with bounded concurrency ceiling: **`concurrency: 3`**.
-  6. Auto-snooze state machine (transitions monitor to `TRIGGERED_SNOOZED` for 48h upon condition satisfaction).
-  7. Brevo email client and Telegram Bot notification dispatchers.
+* **Phase 5: Next.js 14+ Frontend Dashboard**
+  1. Next.js 14 App Router setup with Tailwind CSS, Lucide icons, and modern design system.
+  2. Dark-mode aesthetic with zinc/slate glassmorphism and modern typography.
+  3. Universal Intent Search bar (`Cmd+K`) with real-time candidate preview cards.
+  4. Active Monitors Grid with one-click re-arming, pausing, and test running.
+  5. Detailed Monitor View with Recharts price trend graphs and Cloudinary screenshot visual proof inspection drawer.

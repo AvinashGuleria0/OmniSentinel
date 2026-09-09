@@ -7,7 +7,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc --noEmit",
     "start": "node dist/index.js",
+    "worker": "tsx src/workers/runner.ts",
     "cli:test": "tsx src/cli/index.ts",
+    "test:api": "tsx src/api/__tests__/api.test.ts",
     "db:generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "db:migrate": "tsx src/db/migrate.ts"
