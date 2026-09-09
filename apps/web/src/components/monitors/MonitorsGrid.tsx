@@ -151,13 +151,20 @@ export function MonitorsGrid({ monitors, isLoading, onRefresh, onOpenAnalytics, 
             {search ? `No monitors matching "${search}"` : 'No monitors yet'}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
-            {search ? 'Try a different search term.' : 'Describe what you want to track in the search bar above.'}
+            {search
+              ? 'Try a different search term.'
+              : 'Describe what you want to track above, or refresh if data is not loading.'}
           </div>
-          {!search && (
-            <button onClick={onNewMonitor} className="btn btn-primary">
-              Create your first monitor
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            {!search && (
+              <button onClick={onNewMonitor} className="btn btn-primary">
+                Create your first monitor
+              </button>
+            )}
+            <button onClick={onRefresh} className="btn btn-secondary">
+              ↻ Refresh
             </button>
-          )}
+          </div>
         </div>
       )}
 

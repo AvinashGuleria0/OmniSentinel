@@ -25,12 +25,13 @@ export default function DashboardPage() {
       const data = await api.getMonitors();
       setMonitors(data);
       setApiOnline(true);
-    } catch {
+    } catch (err: any) {
       setApiOnline(false);
+      toast('error', 'Could not load monitors', err?.message || 'Make sure the API server is running on port 4000');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     load();

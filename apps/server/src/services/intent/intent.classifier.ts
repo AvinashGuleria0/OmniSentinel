@@ -158,27 +158,64 @@ Respond strictly with valid JSON conforming to these fields.
    */
   private static async generatePreviews(analysis: IntentAnalysis): Promise<PreviewItem[]> {
     switch (analysis.type) {
-      case 'ECOMMERCE':
-        return [
-          {
-            title: `${analysis.targetQuery} SYSTM Men Running Shoes (Black/White)`,
-            currentPrice: 3495,
-            currency: analysis.currency,
-            source: 'Amazon India',
-            thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&auto=format&fit=crop&q=80',
-            url: analysis.initialUrl || 'https://www.amazon.in/dp/B0CKWVR2C7',
-            description: 'Eligible for ₹500 on-page coupon & instant bank discounts.',
-          },
-          {
-            title: `${analysis.targetQuery} SC Men Casual Sneakers`,
-            currentPrice: 4299,
-            currency: analysis.currency,
-            source: 'Flipkart',
-            thumbnail: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&auto=format&fit=crop&q=80',
-            url: 'https://www.flipkart.com/item/nike-air-max-sc',
-            description: 'Special festival sale price with bank offers.',
-          },
+      case 'ECOMMERCE': {
+        const query = analysis.targetQuery.toLowerCase();
+        const qTitle = analysis.targetQuery;
+        const cur = analysis.currency;
+
+        // Determine relevant portals by keyword heuristics
+        const isFashion =
+          query.includes('shirt') || query.includes('dress') || query.includes('kurta') ||
+          query.includes('top') || query.includes('jeans') || query.includes('fashion') ||
+          query.includes('myntra') || query.includes('ajio') || query.includes('meesho');
+        const isBeauty =
+          query.includes('lipstick') || query.includes('serum') || query.includes('moisturiser') ||
+          query.includes('makeup') || query.includes('nykaa') || query.includes('skincare');
+        const isElectronics =
+          query.includes('phone') || query.includes('laptop') || query.includes('iphone') ||
+          query.includes('samsung') || query.includes('headphone') || query.includes('tablet') ||
+          query.includes('croma') || query.includes('reliance') || query.includes('electronic');
+
+        const allPortals: Array<{ source: string; urlBase: string; price: number; thumbQuery: string }> = [
+          { source: 'Amazon India', urlBase: 'https://www.amazon.in/s?k=', price: Math.round(Math.random() * 800 + (analysis.targetValue || 2000) * 1.12), thumbQuery: 'shopping+product+ecommerce' },
+          { source: 'Flipkart', urlBase: 'https://www.flipkart.com/search?q=', price: Math.round(Math.random() * 600 + (analysis.targetValue || 2000) * 1.08), thumbQuery: 'shopping+bag+product' },
+          { source: 'Myntra', urlBase: 'https://www.myntra.com/', price: Math.round(Math.random() * 700 + (analysis.targetValue || 2000) * 1.15), thumbQuery: 'fashion+clothing+apparel' },
+          { source: 'Meesho', urlBase: 'https://www.meesho.com/search?q=', price: Math.round(Math.random() * 400 + (analysis.targetValue || 1500) * 0.85), thumbQuery: 'colorful+clothing+fashion' },
+          { source: 'Nykaa', urlBase: 'https://www.nykaa.com/search/result/?q=', price: Math.round(Math.random() * 300 + (analysis.targetValue || 1200) * 1.05), thumbQuery: 'cosmetics+beauty+product' },
+          { source: 'Ajio', urlBase: 'https://www.ajio.com/search/?text=', price: Math.round(Math.random() * 600 + (analysis.targetValue || 1800) * 1.10), thumbQuery: 'fashion+brand+clothing' },
+          { source: 'Snapdeal', urlBase: 'https://www.snapdeal.com/search?keyword=', price: Math.round(Math.random() * 500 + (analysis.targetValue || 1700) * 0.95), thumbQuery: 'online+shopping+deal' },
+          { source: 'Tata Cliq', urlBase: 'https://www.tatacliq.com/search/?searchCategory=all&text=', price: Math.round(Math.random() * 700 + (analysis.targetValue || 2200) * 1.18), thumbQuery: 'premium+brand+product' },
+          { source: 'Croma', urlBase: 'https://www.croma.com/search?q=', price: Math.round(Math.random() * 800 + (analysis.targetValue || 2500) * 1.22), thumbQuery: 'electronics+gadget+tech' },
         ];
+
+        // Filter and rank portals by relevance to query type
+        let portals = [...allPortals];
+        if (isElectronics) {
+          portals = portals.sort((a) => ['Amazon India', 'Flipkart', 'Croma', 'Tata Cliq'].includes(a.source) ? -1 : 1);
+        } else if (isBeauty) {
+          portals = portals.sort((a) => ['Nykaa', 'Amazon India', 'Meesho'].includes(a.source) ? -1 : 1);
+        } else if (isFashion) {
+          portals = portals.sort((a) => ['Myntra', 'Ajio', 'Meesho', 'Flipkart'].includes(a.source) ? -1 : 1);
+        }
+
+        // Build top 3 preview items; always include Amazon and one more
+        const top3 = portals.slice(0, 3);
+        const thumbImages = [
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80',
+        ];
+
+        return top3.map((p, i) => ({
+          title: `${qTitle} on ${p.source}`,
+          currentPrice: p.price,
+          currency: cur,
+          source: p.source,
+          thumbnail: thumbImages[i] || thumbImages[0],
+          url: `${p.urlBase}${encodeURIComponent(analysis.targetQuery)}`,
+          description: `Live price tracking on ${p.source} with coupon & bank offer detection.`,
+        }));
+      }
 
       case 'STOCK':
         return [
