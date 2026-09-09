@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, TrendingDown, Image as ImageIcon, CheckCircle, AlertTriangle, Clock, RefreshCw, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, TrendingDown, Image as ImageIcon, Clock, ExternalLink, ChevronLeft } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
 import { MonitorRecord, CheckLogPoint, api } from '@/lib/api';
-import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { useToast } from '../common/Toast';
 
 interface MonitorAnalyticsDrawerProps {
@@ -12,245 +11,303 @@ interface MonitorAnalyticsDrawerProps {
   onClose: () => void;
 }
 
+function fmt(v: string | null, c: string) {
+  if (!v) return '—';
+  const n = Number(v);
+  if (isNaN(n)) return '—';
+  return `${c === 'INR' ? '₹' : '$'}${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+function relTime(d: string | null) {
+  if (!d) return '—';
+  const diff = (Date.now() - new Date(d).getTime()) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  CONDITION_MET: 'var(--success)',
+  SUCCESS: 'var(--accent)',
+  NO_CHANGE: 'var(--text-tertiary)',
+  FAILED: 'var(--danger)',
+  BLOCKED: 'var(--danger)',
+};
+
 export function MonitorAnalyticsDrawer({ monitor, onClose }: MonitorAnalyticsDrawerProps) {
   const [history, setHistory] = useState<CheckLogPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (!monitor) return;
-
-    const fetchHistory = async () => {
-      setIsLoading(true);
-      try {
-        const data = await api.getMonitorHistory(monitor.id);
-        setHistory(data);
-      } catch (err: any) {
-        toast('error', 'History fetch failed', err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchHistory();
+    setLoading(true);
+    api.getMonitorHistory(monitor.id)
+      .then(setHistory)
+      .catch((e) => toast('error', 'Failed to load history', e.message))
+      .finally(() => setLoading(false));
   }, [monitor, toast]);
 
   if (!monitor) return null;
 
-  // Format chart data
+  const targetNum = monitor.targetValue ? Number(monitor.targetValue) : null;
   const chartData = history
     .filter((h) => h.recordedValue !== null)
     .map((h) => ({
-      timestamp: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      date: new Date(h.timestamp).toLocaleDateString(),
-      recordedValue: h.recordedValue,
+      t: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      v: h.recordedValue,
       status: h.status,
     }));
-
-  const targetValueNum = monitor.targetValue ? parseFloat(monitor.targetValue) : null;
-  const latestScreenshot = history.find((h) => h.screenshotUrl)?.screenshotUrl;
+  const latestShot = history.find((h) => h.screenshotUrl)?.screenshotUrl;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-dark-950/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl h-full bg-dark-900 border-l border-white/10 shadow-2xl flex flex-col overflow-hidden">
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/[0.08] bg-dark-850/50">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                {monitor.type}
-              </span>
-              <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                monitor.status === 'ACTIVE'
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                  : monitor.status === 'TRIGGERED_SNOOZED'
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                  : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
-              }`}>
-                {monitor.status}
-              </span>
-            </div>
-            <h3 className="text-lg font-bold text-white mt-1">{monitor.title}</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Prompt: &quot;{monitor.rawPrompt}&quot;</p>
-          </div>
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(2px)',
+          zIndex: 50,
+        }}
+      />
 
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-          >
-            <X className="w-5 h-5" />
+      {/* Drawer */}
+      <div
+        className="fade-in"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          maxWidth: 520,
+          background: 'var(--bg)',
+          borderLeft: '1px solid var(--border)',
+          zIndex: 51,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Drawer Header */}
+        <div
+          style={{
+            padding: '14px 20px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <button onClick={onClose} className="btn btn-ghost" style={{ padding: '4px 6px' }}>
+            <ChevronLeft size={15} />
           </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {monitor.title}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {monitor.type} · {monitor.frequencyMinutes}m interval
+            </div>
+          </div>
         </div>
 
         {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-          {/* Metrics Overview Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3.5 rounded-xl bg-dark-850 border border-white/[0.06]">
-              <span className="text-[11px] font-medium text-slate-400 block">Condition Target</span>
-              <span className="text-base font-bold text-white mt-0.5 block">
-                {targetValueNum !== null ? formatCurrency(targetValueNum, monitor.currency) : 'New Entry'}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-dark-850 border border-white/[0.06]">
-              <span className="text-[11px] font-medium text-slate-400 block">Latest Recorded</span>
-              <span className="text-base font-bold text-cyan-400 mt-0.5 block">
-                {monitor.lastKnownValue ? formatCurrency(parseFloat(monitor.lastKnownValue), monitor.currency) : 'Pending'}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-dark-850 border border-white/[0.06]">
-              <span className="text-[11px] font-medium text-slate-400 block">Last Checked</span>
-              <span className="text-xs font-semibold text-slate-300 mt-1 block">
-                {formatRelativeTime(monitor.lastCheckedAt)}
-              </span>
-            </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {[
+              { label: 'Target', value: fmt(monitor.targetValue, monitor.currency) },
+              { label: 'Latest', value: fmt(monitor.lastKnownValue, monitor.currency) },
+              { label: 'Checked', value: relTime(monitor.lastCheckedAt) },
+            ].map((s) => (
+              <div
+                key={s.label}
+                style={{
+                  padding: '12px',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                }}
+              >
+                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{s.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4, fontFamily: 'monospace' }}>{s.value}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Price Drop Trend Line Chart (Recharts) */}
-          <div className="p-4 rounded-xl bg-dark-850 border border-white/[0.06]">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-cyan-400" />
-                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
-                  Historical Price Trend ({chartData.length} Cycles)
-                </h4>
-              </div>
+          {/* Chart */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <TrendingDown size={12} />
+              Price History ({chartData.length} readings)
             </div>
-
-            {chartData.length > 0 ? (
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="timestamp" stroke="#64748b" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+            <div
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: '16px 16px 8px 4px',
+              }}
+            >
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
+                    <XAxis
+                      dataKey="t"
+                      stroke="var(--border)"
+                      tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="var(--border)"
+                      tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={['auto', 'auto']}
+                      width={50}
+                    />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: '#0a0f1d',
-                        borderColor: '#233354',
-                        borderRadius: '8px',
-                        fontSize: '12px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        color: 'var(--text-primary)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                       }}
-                      formatter={(val: any) => [formatCurrency(val, monitor.currency), 'Recorded Value']}
+                      formatter={(val: any) => [fmt(String(val), monitor.currency), 'Value']}
+                      labelStyle={{ color: 'var(--text-secondary)' }}
                     />
-                    {targetValueNum !== null && (
+                    {targetNum !== null && (
                       <ReferenceLine
-                        y={targetValueNum}
-                        stroke="#f59e0b"
-                        strokeDasharray="4 4"
-                        label={{ value: 'Target', fill: '#f59e0b', fontSize: 10, position: 'right' }}
+                        y={targetNum}
+                        stroke="var(--warning)"
+                        strokeDasharray="3 3"
+                        label={{ value: 'Target', fill: 'var(--warning)', fontSize: 10, position: 'insideTopRight' }}
                       />
                     )}
                     <Line
                       type="monotone"
-                      dataKey="recordedValue"
-                      stroke="#06b6d4"
-                      strokeWidth={2.5}
-                      dot={{ fill: '#06b6d4', r: 3 }}
-                      activeDot={{ r: 5, stroke: '#38bdf8', strokeWidth: 2 }}
+                      dataKey="v"
+                      stroke="var(--accent)"
+                      strokeWidth={2}
+                      dot={{ fill: 'var(--accent)', r: 2.5, strokeWidth: 0 }}
+                      activeDot={{ r: 4, fill: 'var(--accent)', strokeWidth: 0 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-44 flex flex-col items-center justify-center text-slate-500 text-xs">
-                <Clock className="w-6 h-6 mb-2 text-slate-600 animate-spin" />
-                <span>No check cycles recorded yet. Polling will begin shortly.</span>
-              </div>
-            )}
+              ) : (
+                <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>
+                  {loading ? 'Loading...' : 'No data yet. Run a check to record history.'}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Visual Proof Screenshot Drawer Section */}
-          <div className="p-4 rounded-xl bg-dark-850 border border-white/[0.06]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-emerald-400" />
-                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
-                  Visual Proof (Live Screenshot)
-                </h4>
-              </div>
-              {latestScreenshot && (
-                <a
-                  href={latestScreenshot}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
-                >
-                  <span>Open Full CDN URL</span>
-                  <ExternalLink className="w-3 h-3" />
+          {/* Screenshot */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <ImageIcon size={12} />
+                Visual Proof
+              </span>
+              {latestShot && (
+                <a href={latestShot} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent)', textDecoration: 'none', fontSize: 11, fontWeight: 500 }}>
+                  Open <ExternalLink size={10} />
                 </a>
               )}
             </div>
-
-            {latestScreenshot ? (
+            {latestShot ? (
               <div
-                onClick={() => setSelectedScreenshot(latestScreenshot)}
-                className="relative rounded-lg overflow-hidden border border-white/10 group cursor-pointer aspect-video bg-dark-950 flex items-center justify-center"
+                onClick={() => setLightbox(latestShot)}
+                style={{
+                  borderRadius: 'var(--radius)',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  cursor: 'zoom-in',
+                  aspectRatio: '16/9',
+                  background: 'var(--surface)',
+                }}
               >
-                <img
-                  src={latestScreenshot}
-                  alt="Audit Proof Screenshot"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-dark-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-medium">
-                  Click to Expand
-                </div>
+                <img src={latestShot} alt="Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             ) : (
-              <div className="p-6 rounded-lg border border-dashed border-white/10 text-center text-xs text-slate-500">
-                Visual proof screenshot is generated on Playwright browser checks for E-commerce & Generic Web monitors.
+              <div style={{ padding: '24px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+                Screenshots are captured for E-Commerce and Web monitors.
               </div>
             )}
           </div>
 
-          {/* Execution Audit Log Table */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Recent Executions</h4>
-            <div className="border border-white/[0.06] rounded-xl overflow-hidden divide-y divide-white/[0.06]">
-              {history.slice(0, 8).map((log) => (
-                <div key={log.id} className="p-3 flex items-center justify-between text-xs bg-dark-850/40">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${
-                      log.status === 'CONDITION_MET'
-                        ? 'bg-emerald-400'
-                        : log.status === 'SUCCESS'
-                        ? 'bg-cyan-400'
-                        : log.status === 'NO_CHANGE'
-                        ? 'bg-slate-400'
-                        : 'bg-rose-400'
-                    }`} />
-                    <span className="font-medium text-white">{log.status}</span>
+          {/* Audit Log */}
+          {history.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+                Execution Log
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {history.slice(0, 10).map((log) => (
+                  <div
+                    key={log.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      background: 'var(--surface)',
+                      fontSize: 12,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[log.status] || 'var(--muted)', flexShrink: 0 }} />
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{log.status}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-tertiary)' }}>
+                      {log.recordedValue !== null && (
+                        <span className="mono" style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: 12 }}>
+                          {fmt(String(log.recordedValue), monitor.currency)}
+                        </span>
+                      )}
+                      <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-4 text-slate-400">
-                    {log.recordedValue !== null && (
-                      <span className="text-white font-mono">{formatCurrency(log.recordedValue, monitor.currency)}</span>
-                    )}
-                    <span className="text-[11px] text-slate-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Expanded Screenshot Lightbox */}
-      {selectedScreenshot && (
+      {/* Lightbox */}
+      {lightbox && (
         <div
-          onClick={() => setSelectedScreenshot(null)}
-          className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-6 cursor-pointer"
+          onClick={() => setLightbox(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            cursor: 'zoom-out',
+          }}
         >
           <img
-            src={selectedScreenshot}
-            alt="Fullscreen Proof"
-            className="max-w-full max-h-full rounded-xl border border-white/20 object-contain shadow-2xl"
+            src={lightbox}
+            alt="Screenshot"
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}
           />
         </div>
       )}
-    </div>
+    </>
   );
 }

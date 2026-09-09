@@ -1,87 +1,102 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Activity, Bell, Cpu } from 'lucide-react';
+import { Sun, Moon, Shield, Plus } from 'lucide-react';
+import { useTheme } from './ThemeProvider';
 
 interface HeaderProps {
   activeCount: number;
   totalCount: number;
-  snoozedCount: number;
   apiOnline: boolean;
-  onOpenSearch: () => void;
+  onNewMonitor: () => void;
 }
 
-export function Header({
-  activeCount,
-  totalCount,
-  snoozedCount,
-  apiOnline,
-  onOpenSearch,
-}: HeaderProps) {
+export function Header({ activeCount, totalCount, apiOnline, onNewMonitor }: HeaderProps) {
+  const { theme, toggle } = useTheme();
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-dark-950/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header
+      style={{
+        background: 'var(--bg)',
+        borderBottom: '1px solid var(--border)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: '0 24px',
+          height: 56,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 glow-cyan">
-            <ShieldCheck className="w-5 h-5 text-cyan-400" />
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
-            </span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight text-white">OmniSentinel</span>
-              <span className="px-1.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                v1.0 Autonomous
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 hidden sm:block">Intent-First Multi-Source Tracking Engine</p>
-          </div>
-        </div>
-
-        {/* Live System Status & Telemetry */}
-        <div className="hidden md:flex items-center gap-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dark-900 border border-white/[0.06]">
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${apiOnline ? 'bg-emerald-400' : 'bg-rose-400'} opacity-75`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${apiOnline ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-            </span>
-            <span className="text-xs font-medium text-slate-300">
-              {apiOnline ? 'Gateway Connected' : 'Gateway Offline'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs text-slate-400">
-            <div>
-              <span className="text-slate-500">Total:</span>{' '}
-              <span className="font-semibold text-white">{totalCount}</span>
-            </div>
-            <div className="h-3 w-px bg-white/10"></div>
-            <div>
-              <span className="text-slate-500">Active:</span>{' '}
-              <span className="font-semibold text-emerald-400">{activeCount}</span>
-            </div>
-            <div className="h-3 w-px bg-white/10"></div>
-            <div>
-              <span className="text-slate-500">Snoozed:</span>{' '}
-              <span className="font-semibold text-amber-400">{snoozedCount}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button & Shortcuts */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onOpenSearch}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium text-xs hover:from-cyan-400 hover:to-blue-500 transition-all shadow-glow-cyan"
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Shield size={18} color="var(--accent)" strokeWidth={2} />
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.3px',
+            }}
           >
-            <Cpu className="w-3.5 h-3.5" />
-            <span>New Sentinel</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white/20 rounded text-white ml-1">
-              ⌘K
-            </kbd>
+            OmniSentinel
+          </span>
+        </div>
+
+        {/* Center — Status Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            className="badge"
+            style={{
+              background: apiOnline ? 'var(--success-surface)' : 'var(--danger-surface)',
+              color: apiOnline ? 'var(--success)' : 'var(--danger)',
+            }}
+          >
+            <span
+              className="pulse-dot"
+              style={{
+                background: apiOnline ? 'var(--success)' : 'var(--danger)',
+                color: apiOnline ? 'var(--success)' : 'var(--danger)',
+              }}
+            />
+            {apiOnline ? 'Connected' : 'Offline'}
+          </span>
+
+          {apiOnline && (
+            <span
+              className="badge"
+              style={{
+                background: 'var(--surface)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              {activeCount}/{totalCount} active
+            </span>
+          )}
+        </div>
+
+        {/* Right Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={toggle}
+            className="btn btn-ghost"
+            style={{ padding: '6px 8px' }}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+          <button onClick={onNewMonitor} className="btn btn-primary" style={{ fontSize: 13 }}>
+            <Plus size={14} />
+            New Monitor
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from '@/components/common/Header';
 import { UniversalSearchBar } from '@/components/intent/UniversalSearchBar';
 import { IntentPreviewModal } from '@/components/intent/IntentPreviewModal';
@@ -8,129 +8,119 @@ import { MonitorsGrid } from '@/components/monitors/MonitorsGrid';
 import { MonitorAnalyticsDrawer } from '@/components/analytics/MonitorAnalyticsDrawer';
 import { MonitorRecord, api } from '@/lib/api';
 import { ParseIntentResponse } from '@omnisentinel/shared';
-import { Shield, Sparkles, RefreshCw, Radio } from 'lucide-react';
 import { useToast } from '@/components/common/Toast';
 
 export default function DashboardPage() {
   const [monitors, setMonitors] = useState<MonitorRecord[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [apiOnline, setApiOnline] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiOnline, setApiOnline] = useState(false);
   const [previewData, setPreviewData] = useState<ParseIntentResponse | null>(null);
-  const [activeAnalyticsMonitor, setActiveAnalyticsMonitor] = useState<MonitorRecord | null>(null);
+  const [analyticsMonitor, setAnalyticsMonitor] = useState<MonitorRecord | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const loadMonitors = useCallback(async () => {
+  const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await api.getMonitors();
       setMonitors(data);
       setApiOnline(true);
-    } catch (err: any) {
+    } catch {
       setApiOnline(false);
-      toast('error', 'Connection Error', 'Failed to communicate with OmniSentinel Fastify gateway');
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
-  // Initial fetch and health check
   useEffect(() => {
-    loadMonitors();
-    const interval = setInterval(loadMonitors, 20000); // 20s auto-refresh
-    return () => clearInterval(interval);
-  }, [loadMonitors]);
+    load();
+    const t = setInterval(load, 20000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const activeCount = monitors.filter((m) => m.status === 'ACTIVE').length;
-  const snoozedCount = monitors.filter((m) => m.status === 'TRIGGERED_SNOOZED').length;
+
+  const scrollToSearch = () => {
+    searchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      const input = searchRef.current?.querySelector('input') as HTMLInputElement;
+      input?.focus();
+    }, 300);
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-dark-950 bg-grid-pattern relative">
-      {/* Background ambient lighting accents */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="fixed top-1/3 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
-
-      {/* Top Navigation Bar */}
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <Header
         activeCount={activeCount}
         totalCount={monitors.length}
-        snoozedCount={snoozedCount}
         apiOnline={apiOnline}
-        onOpenSearch={() => {
-          const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-          input?.focus();
-        }}
+        onNewMonitor={scrollToSearch}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section with Live Pulse */}
-        <div className="text-center max-w-2xl mx-auto mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold mb-3">
-            <Radio className="w-3.5 h-3.5 animate-pulse" />
-            <span>Autonomous Intelligence Loop Active</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Describe Your Intent.{' '}
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-400 bg-clip-text text-transparent">
-              OmniSentinel Tracks It.
-            </span>
-          </h1>
-
-          <p className="mt-2 text-sm sm:text-base text-slate-400">
-            Self-healing monitoring across stocks, e-commerce bank discounts, job boards, and dynamic web content with zero code.
+      <main style={{ flex: 1, maxWidth: 1100, width: '100%', margin: '0 auto', padding: '0 24px' }}>
+        {/* ── Hero ── */}
+        <section style={{ padding: '56px 0 40px', maxWidth: 640 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 14 }}>
+            Autonomous Tracking Platform
           </p>
-        </div>
-
-        {/* Universal Intent Command Search Bar */}
-        <UniversalSearchBar onParsed={(result) => setPreviewData(result)} />
-
-        {/* Monitors Grid Section Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white tracking-tight">Active Surveillance Sentinels</h2>
-            <p className="text-xs text-slate-400">Real-time status and time-series telemetry of registered monitors</p>
-          </div>
-
-          <button
-            onClick={loadMonitors}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-900 hover:bg-dark-850 text-slate-400 hover:text-white border border-white/[0.08] text-xs font-medium transition-colors"
+          <h1
+            style={{
+              fontSize: 'clamp(28px, 5vw, 40px)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              lineHeight: 1.15,
+              letterSpacing: '-0.8px',
+              marginBottom: 16,
+            }}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Sync</span>
-          </button>
+            Describe it once.
+            <br />
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>We'll watch it forever.</span>
+          </h1>
+          <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 480 }}>
+            Track price drops, stock alerts, job postings, and web changes — using plain language. No code, no config.
+          </p>
+        </section>
+
+        {/* ── Search Bar ── */}
+        <section style={{ paddingBottom: 56 }} ref={searchRef}>
+          <UniversalSearchBar onParsed={(result) => setPreviewData(result)} />
+        </section>
+
+        {/* ── Divider with label ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border)' }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap' }}>
+            Active Monitors
+          </span>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border)' }} />
         </div>
 
-        {/* Grid of Monitors */}
-        <MonitorsGrid
-          monitors={monitors}
-          isLoading={isLoading}
-          onRefresh={loadMonitors}
-          onOpenAnalytics={(m) => setActiveAnalyticsMonitor(m)}
-          onNewMonitor={() => {
-            const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-            input?.focus();
-          }}
-        />
+        {/* ── Monitors Grid ── */}
+        <section style={{ paddingBottom: 80 }}>
+          <MonitorsGrid
+            monitors={monitors}
+            isLoading={isLoading}
+            onRefresh={load}
+            onOpenAnalytics={setAnalyticsMonitor}
+            onNewMonitor={scrollToSearch}
+          />
+        </section>
       </main>
 
-      {/* Search-and-Confirm Preview Modal */}
+      {/* Modals / Drawers */}
       {previewData && (
         <IntentPreviewModal
           data={previewData}
           onClose={() => setPreviewData(null)}
-          onMonitorCreated={() => {
-            loadMonitors();
-          }}
+          onMonitorCreated={load}
         />
       )}
 
-      {/* Analytics & Visual Proof Drawer */}
-      {activeAnalyticsMonitor && (
+      {analyticsMonitor && (
         <MonitorAnalyticsDrawer
-          monitor={activeAnalyticsMonitor}
-          onClose={() => setActiveAnalyticsMonitor(null)}
+          monitor={analyticsMonitor}
+          onClose={() => setAnalyticsMonitor(null)}
         />
       )}
     </div>

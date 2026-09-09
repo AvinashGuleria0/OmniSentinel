@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { Search } from 'lucide-react';
 import { MonitorRecord } from '@/lib/api';
 import { MonitorCard } from './MonitorCard';
-import { Search, Filter, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface MonitorsGridProps {
   monitors: MonitorRecord[];
@@ -13,118 +13,160 @@ interface MonitorsGridProps {
   onNewMonitor: () => void;
 }
 
-type DomainTab = 'ALL' | 'STOCK' | 'ECOMMERCE' | 'JOB' | 'GENERIC_WEB';
+type Tab = 'ALL' | 'STOCK' | 'ECOMMERCE' | 'JOB' | 'GENERIC_WEB';
 
-export function MonitorsGrid({
-  monitors,
-  isLoading,
-  onRefresh,
-  onOpenAnalytics,
-  onNewMonitor,
-}: MonitorsGridProps) {
-  const [currentTab, setCurrentTab] = useState<DomainTab>('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'ALL', label: 'All' },
+  { id: 'STOCK', label: 'Stocks' },
+  { id: 'ECOMMERCE', label: 'Shopping' },
+  { id: 'JOB', label: 'Jobs' },
+  { id: 'GENERIC_WEB', label: 'Web' },
+];
 
-  const filteredMonitors = useMemo(() => {
-    return monitors.filter((m) => {
-      const matchesTab = currentTab === 'ALL' || m.type === currentTab;
-      const matchesSearch =
-        m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.rawPrompt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (m.targetSymbol && m.targetSymbol.toLowerCase().includes(searchTerm.toLowerCase()));
-      return matchesTab && matchesSearch;
-    });
-  }, [monitors, currentTab, searchTerm]);
+export function MonitorsGrid({ monitors, isLoading, onRefresh, onOpenAnalytics, onNewMonitor }: MonitorsGridProps) {
+  const [tab, setTab] = useState<Tab>('ALL');
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(
+    () =>
+      monitors.filter((m) => {
+        const byTab = tab === 'ALL' || m.type === tab;
+        const q = search.toLowerCase();
+        const bySearch =
+          !q ||
+          m.title.toLowerCase().includes(q) ||
+          m.rawPrompt.toLowerCase().includes(q) ||
+          (m.targetSymbol || '').toLowerCase().includes(q);
+        return byTab && bySearch;
+      }),
+    [monitors, tab, search]
+  );
 
   return (
-    <div className="w-full">
-      {/* Controls Bar: Category Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-        {/* Domain Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-dark-900 border border-white/[0.08] w-full sm:w-auto overflow-x-auto">
-          {(
-            [
-              { id: 'ALL', label: 'All Sentinels' },
-              { id: 'STOCK', label: 'Stocks' },
-              { id: 'ECOMMERCE', label: 'E-Commerce' },
-              { id: 'JOB', label: 'Jobs' },
-              { id: 'GENERIC_WEB', label: 'Web Scrapers' },
-            ] as const
-          ).map((tab) => (
+    <div>
+      {/* Toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Tab bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {TABS.map((t) => (
             <button
-              key={tab.id}
-              onClick={() => setCurrentTab(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                currentTab === tab.id
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: 6,
+                border: 'none',
+                background: tab === t.id ? 'var(--surface-2)' : 'transparent',
+                color: tab === t.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontSize: 13,
+                fontWeight: tab === t.id ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                fontFamily: 'inherit',
+              }}
             >
-              {tab.label}
+              {t.label}
+              {t.id === 'ALL' ? (
+                <span
+                  style={{
+                    marginLeft: 5,
+                    fontSize: 11,
+                    color: 'var(--text-tertiary)',
+                    fontWeight: 400,
+                  }}
+                >
+                  {monitors.length}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
 
-        {/* Search Filter */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* Search */}
+        <div style={{ position: 'relative' }}>
+          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
           <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search sentinels..."
-            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-dark-900 border border-white/[0.08] text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter monitors..."
+            style={{
+              paddingLeft: 30,
+              paddingRight: 12,
+              paddingTop: 6,
+              paddingBottom: 6,
+              fontSize: 13,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              color: 'var(--text-primary)',
+              fontFamily: 'inherit',
+              outline: 'none',
+              width: 180,
+            }}
           />
         </div>
       </div>
 
-      {/* Grid State */}
+      {/* Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="h-64 rounded-2xl bg-dark-900/60 border border-white/[0.06] animate-pulse p-5 flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="h-6 w-24 bg-dark-800 rounded-lg" />
-                <div className="h-5 w-48 bg-dark-800 rounded-lg" />
-                <div className="h-4 w-full bg-dark-800/60 rounded-lg" />
-              </div>
-              <div className="h-10 w-full bg-dark-800/60 rounded-xl" />
-            </div>
-          ))}
-        </div>
-      ) : filteredMonitors.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredMonitors.map((m) => (
-            <MonitorCard
-              key={m.id}
-              monitor={m}
-              onRefresh={onRefresh}
-              onOpenAnalytics={onOpenAnalytics}
+              style={{
+                height: 220,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-lg)',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+              }}
             />
           ))}
         </div>
+      ) : filtered.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          {filtered.map((m) => (
+            <MonitorCard key={m.id} monitor={m} onRefresh={onRefresh} onOpenAnalytics={onOpenAnalytics} />
+          ))}
+        </div>
       ) : (
-        <div className="p-12 text-center rounded-2xl border border-dashed border-white/10 bg-dark-900/30 flex flex-col items-center justify-center">
-          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-3">
-            <Sparkles className="w-6 h-6" />
+        <div
+          style={{
+            padding: '48px 24px',
+            textAlign: 'center',
+            border: '1px dashed var(--border)',
+            borderRadius: 'var(--radius-lg)',
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>
+            {search ? `No monitors matching "${search}"` : 'No monitors yet'}
           </div>
-          <h3 className="text-base font-semibold text-white">No Active Sentinels Found</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm">
-            {searchTerm
-              ? `No monitors matched "${searchTerm}". Clear search or adjust filters.`
-              : 'Launch your first autonomous sentinel by describing what you want to track above.'}
-          </p>
-          <button
-            onClick={onNewMonitor}
-            className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium text-xs hover:from-cyan-400 hover:to-blue-500 transition-all shadow-glow-cyan"
-          >
-            Create Sentinel
-          </button>
+          <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+            {search ? 'Try a different search term.' : 'Describe what you want to track in the search bar above.'}
+          </div>
+          {!search && (
+            <button onClick={onNewMonitor} className="btn btn-primary">
+              Create your first monitor
+            </button>
+          )}
         </div>
       )}
+
+      <style>{`
+        @keyframes shimmer {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
     </div>
   );
 }

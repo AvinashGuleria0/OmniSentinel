@@ -1,130 +1,150 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, TrendingUp, ShoppingBag, Briefcase, Globe, ArrowRight, Loader2 } from 'lucide-react';
+import { Search, ArrowRight, Loader2, TrendingUp, ShoppingBag, Briefcase, Globe } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ParseIntentResponse } from '@omnisentinel/shared';
 import { useToast } from '../common/Toast';
 
 interface UniversalSearchBarProps {
   onParsed: (result: ParseIntentResponse) => void;
-  isOpenModal?: boolean;
 }
 
-const SAMPLE_PROMPTS = [
-  { text: 'Alert me when Nike Air Max drops below 3000 on Amazon with HDFC card', type: 'ECOMMERCE', label: 'E-Commerce' },
-  { text: 'Notify me when Airtel stock drops below 1600', type: 'STOCK', label: 'Stocks' },
-  { text: 'Remote MERN stack internship with at least 25000 stipend', type: 'JOB', label: 'Jobs' },
-  { text: 'Alert me when Delhi University releases the cutoff list', type: 'GENERIC_WEB', label: 'Web Scrape' },
+const PRESETS = [
+  { icon: TrendingUp, label: 'Stock alert', prompt: 'Alert me when Airtel stock drops below 1600' },
+  { icon: ShoppingBag, label: 'Price drop', prompt: 'Notify me when Nike Air Max drops below 3000 on Amazon with HDFC card' },
+  { icon: Briefcase, label: 'Job board', prompt: 'Remote MERN internship with at least 25000 stipend' },
+  { icon: Globe, label: 'Web change', prompt: 'Alert me when Delhi University releases the cutoff list' },
 ];
 
 export function UniversalSearchBar({ onParsed }: UniversalSearchBarProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Keyboard shortcut: Cmd+K or Ctrl+K to focus
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    const down = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         inputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', down);
+    return () => window.removeEventListener('keydown', down);
   }, []);
 
-  // Rotate placeholder every 4.5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % SAMPLE_PROMPTS.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleSearch = async (promptToUse?: string) => {
-    const text = promptToUse || query;
-    if (!text.trim() || text.length < 3) {
-      toast('error', 'Prompt too short', 'Please describe your monitoring intent in at least 3 characters.');
+  const run = async (prompt: string) => {
+    if (!prompt.trim() || prompt.length < 3) {
+      toast('error', 'Too short', 'Describe what you want to track in a few words.');
       return;
     }
-
     setIsLoading(true);
     try {
-      const response = await api.parseIntent(text);
-      onParsed(response);
-      toast('success', 'Intent Decoded', `Detected ${response.analysis.type} alert with ${Math.round(response.analysis.confidence * 100)}% confidence.`);
+      const result = await api.parseIntent(prompt);
+      onParsed(result);
     } catch (err: any) {
-      toast('error', 'Classification Failed', err.message || 'Could not parse intent');
+      toast('error', 'Could not classify intent', err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isLoading) {
-      handleSearch();
-    }
-  };
-
   return (
-    <div className="w-full max-w-3xl mx-auto mb-10">
-      {/* Primary Input Container with Glowing Cyber Frame */}
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 rounded-2xl blur-md opacity-30 group-hover:opacity-60 transition duration-500 group-focus-within:opacity-80"></div>
+    <div style={{ maxWidth: 680, margin: '0 auto', width: '100%' }}>
+      {/* Search Input */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          background: 'var(--surface)',
+          border: `1px solid ${isFocused ? 'var(--accent)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-lg)',
+          padding: '10px 14px',
+          transition: 'border-color 150ms ease',
+        }}
+      >
+        {isLoading ? (
+          <Loader2 size={16} color="var(--accent)" style={{ flexShrink: 0, animation: 'spin 1s linear infinite' }} />
+        ) : (
+          <Search size={16} color="var(--text-tertiary)" style={{ flexShrink: 0 }} />
+        )}
 
-        <div className="relative flex items-center bg-dark-900/90 border border-cyan-500/20 rounded-2xl px-4 py-3.5 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 mr-3 flex-shrink-0">
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-          </div>
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onKeyDown={(e) => e.key === 'Enter' && !isLoading && run(query)}
+          disabled={isLoading}
+          placeholder="Describe what you want to track... (⌘K)"
+          style={{
+            flex: 1,
+            background: 'none',
+            border: 'none',
+            outline: 'none',
+            fontSize: 14,
+            color: 'var(--text-primary)',
+            fontFamily: 'inherit',
+          }}
+        />
 
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            placeholder={`e.g. "${SAMPLE_PROMPTS[placeholderIndex].text}"`}
-            className="w-full bg-transparent text-sm sm:text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-0 tracking-wide"
-          />
-
-          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-            <button
-              onClick={() => handleSearch()}
-              disabled={isLoading || !query.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-glow-cyan"
-            >
-              <span>Analyze</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <kbd
+            style={{
+              fontSize: 11,
+              color: 'var(--text-tertiary)',
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '1px 5px',
+              fontFamily: 'inherit',
+            }}
+          >
+            ↵
+          </kbd>
+          <button
+            onClick={() => run(query)}
+            disabled={isLoading || !query.trim()}
+            className="btn btn-primary"
+            style={{ padding: '5px 12px', fontSize: 13 }}
+          >
+            Analyze
+            <ArrowRight size={13} />
+          </button>
         </div>
       </div>
 
-      {/* Preset Quick Intent Chips */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
-        <span className="text-slate-400 font-medium mr-1 text-[11px] uppercase tracking-wider">Try Presets:</span>
-        {SAMPLE_PROMPTS.map((p, idx) => (
+      {/* Preset quick picks */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ fontSize: 12, color: 'var(--text-tertiary)', marginRight: 2 }}>Try:</span>
+        {PRESETS.map((p) => (
           <button
-            key={idx}
-            onClick={() => {
-              setQuery(p.text);
-              handleSearch(p.text);
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dark-850/80 hover:bg-dark-800 text-slate-300 hover:text-cyan-400 border border-white/[0.06] hover:border-cyan-500/30 transition-all"
+            key={p.label}
+            onClick={() => { setQuery(p.prompt); run(p.prompt); }}
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: 12 }}
           >
-            {p.type === 'STOCK' && <TrendingUp className="w-3 h-3 text-cyan-400" />}
-            {p.type === 'ECOMMERCE' && <ShoppingBag className="w-3 h-3 text-emerald-400" />}
-            {p.type === 'JOB' && <Briefcase className="w-3 h-3 text-violet-400" />}
-            {p.type === 'GENERIC_WEB' && <Globe className="w-3 h-3 text-amber-400" />}
-            <span>{p.label}</span>
+            <p.icon size={12} />
+            {p.label}
           </button>
         ))}
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

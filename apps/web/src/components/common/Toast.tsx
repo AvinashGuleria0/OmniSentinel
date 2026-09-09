@@ -1,67 +1,66 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 type ToastType = 'success' | 'error' | 'info';
+interface ToastItem { id: string; type: ToastType; title: string; message?: string }
+interface ToastContextType { toast: (type: ToastType, title: string, message?: string) => void }
 
-interface ToastMessage {
-  id: string;
-  type: ToastType;
-  title: string;
-  message?: string;
-}
+const ToastContext = createContext<ToastContextType>({ toast: () => {} });
 
-interface ToastContextType {
-  toast: (type: ToastType, title: string, message?: string) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
+const ICON = {
+  success: <CheckCircle2 size={14} />,
+  error: <AlertCircle size={14} />,
+  info: <Info size={14} />,
+};
+const COLORS: Record<ToastType, { bg: string; color: string; border: string }> = {
+  success: { bg: 'var(--success-surface)', color: 'var(--success)', border: 'var(--success)' },
+  error: { bg: 'var(--danger-surface)', color: 'var(--danger)', border: 'var(--danger)' },
+  info: { bg: 'var(--accent-surface)', color: 'var(--accent)', border: 'var(--accent)' },
+};
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const remove = useCallback((id: string) => setToasts((p) => p.filter((t) => t.id !== id)), []);
 
-  const toast = useCallback((type: ToastType, title: string, message?: string) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, title, message }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4500);
-  }, [removeToast]);
+  const toast = useCallback(
+    (type: ToastType, title: string, message?: string) => {
+      const id = Math.random().toString(36).slice(2);
+      setToasts((p) => [...p.slice(-3), { id, type, title, message }]);
+      setTimeout(() => remove(id), 4000);
+    },
+    [remove]
+  );
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 340 }}>
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={cn(
-              'pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-2xl backdrop-blur-xl animate-fade-in transition-all',
-              t.type === 'success' && 'bg-dark-900/90 border-emerald-500/30 text-emerald-400',
-              t.type === 'error' && 'bg-dark-900/90 border-rose-500/30 text-rose-400',
-              t.type === 'info' && 'bg-dark-900/90 border-cyan-500/30 text-cyan-400'
-            )}
+            className="fade-in"
+            style={{
+              background: 'var(--surface)',
+              border: `1px solid var(--border)`,
+              borderLeft: `3px solid ${COLORS[t.type].border}`,
+              borderRadius: 'var(--radius)',
+              padding: '10px 12px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            }}
           >
-            {t.type === 'success' && <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400 mt-0.5" />}
-            {t.type === 'error' && <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-400 mt-0.5" />}
-            {t.type === 'info' && <Info className="w-5 h-5 flex-shrink-0 text-cyan-400 mt-0.5" />}
-
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-white">{t.title}</h4>
-              {t.message && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{t.message}</p>}
+            <span style={{ color: COLORS[t.type].color, flexShrink: 0, marginTop: 1 }}>{ICON[t.type]}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{t.title}</div>
+              {t.message && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{t.message}</div>}
             </div>
-
-            <button
-              onClick={() => removeToast(t.id)}
-              className="text-slate-400 hover:text-white transition-colors p-0.5"
-            >
-              <X className="w-4 h-4" />
+            <button onClick={() => remove(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}>
+              <X size={13} />
             </button>
           </div>
         ))}
@@ -70,10 +69,4 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useToast() {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
-}
+export const useToast = () => useContext(ToastContext);
