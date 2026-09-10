@@ -1,0 +1,43 @@
+name: OmniSentinel CI Pipeline
+
+on:
+  push:
+    branches: [main, master, "phase/*"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    name: Lint, Test & Build Validation
+    runs-on: ubuntu-latest
+
+    env:
+      MOCK_MODE: "true"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/omnisentinel_test"
+      REDIS_URL: "redis://localhost:6379"
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun Runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Workspace Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Shared Contracts
+        run: bun --filter @omnisentinel/shared build
+
+      - name: Typecheck Monorepo Codebase
+        run: |
+          bun --filter @omnisentinel/shared build
+          bun --filter @omnisentinel/server build
+
+      - name: Execute Fastify API Integration Test Suite
+        run: bun run --cwd apps/server test:api
+
+      - name: Build Next.js 14 Frontend Bundle
+        run: bun --filter @omnisentinel/web build

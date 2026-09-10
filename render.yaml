@@ -1,0 +1,52 @@
+services:
+  # 1. OmniSentinel Fastify API Gateway
+  - type: web
+    name: omnisentinel-api
+    runtime: docker
+    dockerfilePath: apps/server/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "4000"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: NODE_ENV
+        value: "production"
+      - key: START_WORKERS
+        value: "true" # Runs workers embedded on free tier
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  # 2. OmniSentinel Dedicated Background Worker (Optional: paid/standard tier)
+  # - type: worker
+  #   name: omnisentinel-worker
+  #   runtime: docker
+  #   dockerfilePath: apps/server/Dockerfile
+  #   dockerCommand: "bun apps/server/src/workers/runner.ts"
+  #   plan: starter
+  #   region: oregon
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       sync: false
+  #     - key: REDIS_URL
+  #       sync: false

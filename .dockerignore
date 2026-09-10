@@ -1,0 +1,32 @@
+# Git and editor files
+.git
+.gitignore
+.agents
+.vscode
+.idea
+*.log
+
+# Dependencies and caches
+node_modules
+.npm
+.bun
+bun.lock*
+package-lock.json
+
+# Build outputs
+dist
+.next
+out
+build
+coverage
+
+# Ephemeral data and scratch files
+scratch
+*.tmp
+.tempmediaStorage
+
+# Local environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

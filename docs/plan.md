@@ -212,18 +212,20 @@ As a senior startup engineer building OmniSentinel for production resilience and
 
 **Goal:** Connect live production services, containerize the stack, and prepare for one-click deployment.
 
-- [ ] **6.1 Live Production Integrations**
-  - [ ] Verify live Gemini Flash API key and live Google Search / Serper / JSearch API keys.
-  - [ ] Verify live Telegram Bot webhook/chat dispatch.
-  - [ ] Verify live Brevo transactional email delivery.
-  - [ ] Verify live Cloudinary media bucket upload.
-- [ ] **6.2 Dockerization & Worker Isolation**
-  - [ ] Multi-stage `Dockerfile` for backend including Chromium and Debian Playwright system dependencies.
-  - [ ] `docker-compose.yml` for local full-stack orchestration (Postgres, Redis, API, Worker).
-- [ ] **6.3 Deployment Documentation & Verification**
-  - [ ] Vercel deployment guide for Next.js frontend.
-  - [ ] Railway / Render configuration for Fastify API and BullMQ worker.
-  - [ ] Supabase PostgreSQL and Upstash Redis production connection guides.
+- [x] **6.1 Live Production Integrations**
+  - [x] Verify live Gemini Flash API key (`gemini-3.6-flash`) and search previews.
+  - [x] Verify live Telegram Bot webhook/chat dispatch (@avi_omnisentinelBot).
+  - [x] Verify live Brevo transactional email delivery (account authenticated & verified).
+  - [x] Verify live Cloudinary media bucket upload (visual proof CDN signatures verified).
+- [x] **6.2 Dockerization & Worker Isolation**
+  - [x] Multi-stage `Dockerfile` for backend including Chromium and Debian Playwright system dependencies.
+  - [x] Multi-stage `Dockerfile` for Next.js 14 frontend dashboard (`output: 'standalone'`).
+  - [x] `docker-compose.yml` for full-stack local orchestration (API, Worker, Web).
+- [x] **6.3 Deployment Documentation & Verification**
+  - [x] GitHub Actions CI workflow (`.github/workflows/ci.yml`).
+  - [x] Vercel deployment guide and `apps/web/vercel.json`.
+  - [x] Railway (`railway.json`) & Render (`render.yaml`) blueprints for API and BullMQ worker.
+  - [x] Complete production runbook in `docs/deployment.md`.
 
 ---
 

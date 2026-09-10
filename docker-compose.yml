@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # 1. Fastify REST API Gateway
+  api:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: omnisentinel-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - HOST=0.0.0.0
+      - MOCK_MODE=${MOCK_MODE:-false}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
+      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - omnisentinel-network
+
+  # 2. BullMQ Dedicated Background Worker Pool
+  worker:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: omnisentinel-worker
+    restart: unless-stopped
+    command: ["bun", "apps/server/src/workers/runner.ts"]
+    environment:
+      - NODE_ENV=production
+      - MOCK_MODE=${MOCK_MODE:-false}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
+      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - omnisentinel-network
+
+  # 3. Next.js 14 Frontend Web Dashboard
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:4000
+    container_name: omnisentinel-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - omnisentinel-network
+
+networks:
+  omnisentinel-network:
+    driver: bridge

@@ -14,10 +14,13 @@ export function getGeminiClient(): GoogleGenerativeAI {
   return genAIInstance;
 }
 
-export function getGeminiFlashModel(enforceJson = true) {
+export function getGeminiFlashModel(enforceJson = true, modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash') {
   const client = getGeminiClient();
   return client.getGenerativeModel({
-    model: 'gemini-3.5-flash-lite',
+    model: modelName,
     generationConfig: enforceJson ? { responseMimeType: 'application/json' } : undefined,
   });
 }
+
+
+

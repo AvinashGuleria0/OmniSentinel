@@ -50,6 +50,9 @@ Respond strictly with valid JSON conforming to these fields.
 
         if (!rawJson.title) rawJson.title = rawJson.targetQuery || 'Web Monitor';
         if (rawJson.confidence === undefined) rawJson.confidence = 0.95;
+        if (!rawJson.filterMetadata || typeof rawJson.filterMetadata !== 'object') {
+          rawJson.filterMetadata = {};
+        }
 
         analysis = IntentAnalysisSchema.parse(rawJson);
       }
